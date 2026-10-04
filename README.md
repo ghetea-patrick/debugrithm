@@ -1,5 +1,8 @@
 # Debugrithm
 
+> [! Caution]
+> This README is NOT valid, please wait until this notice is removed to use Debugrithm.
+
 ### A Python debugging and flow-control utility with slightly fewer assertion-related inconveniences.
 
 Welcome to **Debugrithm**, a lightweight Python utility for explicit assertion checking, execution tracing, function monitoring, and controlled program termination.
