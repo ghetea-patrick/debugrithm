@@ -110,11 +110,12 @@ class Debugger:
             @wraps(func)
             def wrapper(*args, **kwargs):
                 if self.stopped():
-                    return falb
+                    return func(*args, **kwargs)
                 if bool(cond):
                     _indentprint("whenproved", self._name, yes)
+                    return func(*args, **kwargs)
                 else:
                     _indentprint("whenproved", self._name, no)
-                return func(*args, **kwargs)
+                    return falb
             return wrapper
         return decorator
