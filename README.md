@@ -3,18 +3,6 @@
 > [!CAUTION]
 > This README is NOT valid, please wait until this notice is removed to use Debugrithm.
 
->[!NOTE]
-> A note
-
->[!TIP]
-> A tip
-
->[!IMPORTANT]
-> Something important
-
->[!WARNING]
-> A warning
-
 ### A Python debugging and flow-control utility with slightly fewer assertion-related inconveniences.
 
 Welcome to **Debugrithm**, a lightweight Python utility for explicit assertion checking, execution tracing, function monitoring, and controlled program termination.
