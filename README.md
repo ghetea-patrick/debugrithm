@@ -1,6 +1,6 @@
 # Debugrithm
 
-> [! Caution]
+> [!CAUTION]
 > This README is NOT valid, please wait until this notice is removed to use Debugrithm.
 
 ### A Python debugging and flow-control utility with slightly fewer assertion-related inconveniences.
