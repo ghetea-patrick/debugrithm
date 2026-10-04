@@ -2,6 +2,10 @@
 
 > [!CAUTION]
 > This README is NOT valid, please wait until this notice is removed to use Debugrithm.
+[!NOTE]
+[!TIP]
+[!IMPORTANT]
+[!WARNING]
 
 ### A Python debugging and flow-control utility with slightly fewer assertion-related inconveniences.
 
