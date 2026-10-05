@@ -349,15 +349,7 @@ Program termination via `exit(0)` calls standard system exit routines, which may
 
 ---
 
-## 16. License
-
-Debugrithm is distributed according to the license included with the project.
-
-See the project's license file for the applicable terms.
-
----
-
-## 17. Final Example
+## 16. Final Example
 
 A compact Debugrithm program demonstrating core formatting and tracing capabilities:
 
