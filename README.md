@@ -1,105 +1,90 @@
 # Debugrithm
 
-### A Python debugging utility with slightly fewer workflow-related inconveniences.
+**Print-debugging, with a name tag and an off switch.**
 
-Welcome to **Debugrithm**, a lightweight Python utility for explicit assertion handling, execution tracing, runtime checkpoints, state-based bypassing, and conditional decorator execution.
+Debugrithm is a lightweight Python utility for explicit assertions, execution tracing, runtime checkpoints, value overrides, and conditional decorators. You put the debugging operations directly in your code and decide when they are active.
 
-Debugrithm provides several conveniences:
+If your current debugging strategy is `print(f"HERE {x}")` followed by `exit()`, this gives that workflow a little structure. The detective work is still yours; at least the evidence gets a timestamp.
 
-- **Explicit debugger control** with togglable active and paused execution states.
-- **Anonymous and named debuggers** for flexible context tagging.
-- **Invasive assertions** through `expectthat()` and `forbidthat()`.
-- **Immediate execution halting** through `breakpoint()`.
-- **Non-fatal runtime inspection** through `checkpoint()`.
-- **Value substitution and state bypassing** through `bypasswith()`.
-- **Function invocation tracing** through the `pingcalled()` decorator.
-- **Conditional execution and fallbacks** through the `whenproved()` decorator.
-- **Structured argument dumping** with timestamps, index tracking, and pretty-printed collections.
+[What it does](#what-it-does) · [Get started](#get-started) · [A quick example](#a-quick-example) · [How it fits together](#how-it-fits-together) · [Reference](#reference) · [Examples](#examples) · [Good to know](#good-to-know) · [Design notes](#design-notes)
 
-Debugrithm intentionally keeps its debugging mechanisms explicit while making execution state and assertion checking straightforward to inspect.
+## What it does
 
-It is designed for programmers who want to trace program flow without repeatedly typing `print(f"HERE {x}")` followed by `exit()`.
+- Creates named or anonymous `Debugger` instances for tagging diagnostic output.
+- Switches debugging on and off with explicit running and paused states.
+- Checks expected and forbidden conditions through `expectthat()` and `forbidthat()`.
+- Prints diagnostics and stops execution through `breakpoint()`.
+- Prints the same style of diagnostics while continuing execution through `checkpoint()`.
+- Substitutes temporary values with `bypasswith()` while debugging is active.
+- Traces function calls with `pingcalled()` and optionally dumps their arguments.
+- Gates decorated functions with `whenproved()`, including a fallback return value.
+- Formats output with method names, timestamps, zero-based argument indices, and pretty-printed collections.
 
-Because apparently littering your codebase with unformatted `print()` statements was considered a sophisticated debugging strategy.
+## Get started
 
----
-
-## 1. Installation
-
-Debugrithm uses Python's standard library and does not require external dependencies.
-
-Import the `Debugger` class from the Debugrithm module.
+> [!NOTE]
+> Debugrithm uses only Python's standard library and works with ordinary Python objects and control flow. Replace the module path below if your installation uses a different one.
 
 ```python
 from debugrithm import Debugger
 ```
 
-Replace `debugrithm` with the module path used by your installation.
-
-Debugrithm is designed to work with standard Python objects and control flow statements.
-
----
-
-## 2. Debugger Instantiation
-
-The `Debugger` class serves as the core coordinator for debugging operations.
+Create a debugger and turn it on explicitly:
 
 ```python
 dbg = Debugger(name="App", used=True)
 ```
 
-The constructor accepts two optional parameters:
+The constructor accepts two optional arguments:
 
-- `name`: A label used in formatted trace headers.
-- `used`: A boolean flag determining whether debugging features are active.
+| Argument | Default | Purpose |
+| --- | --- | --- |
+| `name` | `""` | Label included in formatted trace headers. |
+| `used` | `False` | Whether the debugging features start active. |
 
-By default, `name` is empty (`""`) and `used` is `False`.
+With no arguments, the debugger starts stopped:
 
 ```python
 dbg = Debugger()
 ```
 
-When `used` is `False`, the debugger is in a stopped (paused) state, causing debugging operations to act as no-ops.
+> [!IMPORTANT]
+> `Debugger()` is inactive by default. Use `used=True` or call `startit()` when you want debugging output and checks. Pausing disables the debugging behavior; decorated application functions still follow the paused behavior documented below.
 
-Because a debugger that cannot be turned off is simply a program that breaks every time you run it.
+## A quick example
 
----
-
-## 3. Anonymous Debuggers
-
-A `Debugger` instance initialized without a `name` parameter (or with `name=""`) functions as an **anonymous debugger**.
+An anonymous debugger is useful for a quick inspection:
 
 ```python
 dbg = Debugger(used=True)
 dbg.checkpoint("Quick check")
 ```
 
-An anonymous debugger retains full method tracking and timestamping, omitting only the `Name.` prefix in log output headers.
-
-Output:
+Illustrative output:
 
 ```text
 checkpoint@143000 'Quick check'
 ```
 
----
+You still get the method name and timestamp. Leaving `name` empty only removes the `Name.` prefix from the header; it does not remove tracking or timestamping.
 
-## 4. Debugger State Management
+> [!NOTE]
+> The examples use `143000` as a sample timestamp. Your output reflects the time of the actual call.
 
-Debugrithm allows enabling or disabling debugging operations dynamically at runtime.
+## How it fits together
 
-### 4.1 State Queries
+### Query the current state
 
-Use `running()` and `stopped()` to check the active state of the debugger instance.
+Use these methods whenever you need to know whether an instance is active:
 
 | Method | Description | Return Type |
 |---|---|---|
 | `running()` | Returns `True` if the debugger is active. | `bool` |
 | `stopped()` | Returns `True` if the debugger is paused or inactive. | `bool` |
 
-### 4.2 State Modification
+### Start and pause debugging
 
-The debugger state can be altered at any point using `startit()` and `pauseit()`.
+You can change the state at runtime:
 
 ```python
 dbg = Debugger(used=True)
@@ -110,25 +95,37 @@ dbg.startit()
 print(dbg.running())
 ```
 
-When paused via `pauseit()`, assertion checks, checkpoints, breakpoints, and traces are completely ignored.
+The two `print()` calls produce `False` and then `True`. While paused, assertion checks, checkpoints, breakpoints, and trace output are ignored.
 
----
+### Choose what should happen at a debugging point
 
-## 5. Expecting Conditions: `expectthat`
+| Operation | Running behavior | Stopped behavior |
+| --- | --- | --- |
+| `expectthat(cond, ...)` | Log success if `bool(cond)` is true; log failure and call `exit(0)` otherwise. | Ignore the check. |
+| `forbidthat(cond, ...)` | Log success if `bool(cond)` is false; log failure and call `exit(0)` otherwise. | Ignore the check. |
+| `breakpoint(...)` | Print the diagnostics and call `exit(0)`. | Ignore the debugging operation. |
+| `checkpoint(...)` | Print the diagnostics and continue. | Ignore the debugging operation. |
+| `bypasswith(curr, prev, ...)` | Log the override and return `curr`. | Return `prev`. |
+| `pingcalled(...)` | Log the call, optionally dump arguments, and invoke the function. | Invoke the function normally without tracing. |
+| `whenproved(cond, falb, ...)` | Run the function when the condition is true; otherwise return `falb`. | Run the original function normally. |
 
-The `expectthat()` method asserts that a condition must evaluate to `True`.
+The distinction matters most for the decorators: turning debugging off restores normal execution rather than making the decorated function disappear.
+
+## Reference
+
+### Require a true condition: `expectthat()`
+
+Use `expectthat()` when a condition must be truthy:
 
 ```python
 dbg.expectthat(cond, yes="Condition met", no="Condition failed")
 ```
 
-### Behavior
+- If the debugger is stopped, it ignores the check.
+- If `bool(cond)` is `True`, it prints `yes` and continues.
+- If `bool(cond)` is `False`, it prints `no` and immediately calls `exit(0)`.
 
-- If the debugger is **stopped**, the check is ignored.
-- If `bool(cond)` is `True`, Debugrithm outputs the `yes` text and continues execution.
-- If `bool(cond)` is `False`, Debugrithm outputs the `no` text and immediately terminates the program via `exit(0)`.
-
-### Example
+For example:
 
 ```python
 dbg = Debugger("Auth", used=True)
@@ -143,27 +140,26 @@ Output:
 Auth.expectthat@143000 'Valid user ID'
 ```
 
----
+### Require a false condition: `forbidthat()`
 
-## 6. Forbidding Conditions: `forbidthat`
-
-The `forbidthat()` method asserts that a condition must evaluate to `False`.
+Use `forbidthat()` when a condition must be falsy:
 
 ```python
 dbg.forbidthat(cond, yes="Not forbidden", no="Forbidden condition occurred")
 ```
 
-### Behavior
+- If the debugger is stopped, it ignores the check.
+- If `not bool(cond)` is `True`, it prints `yes` and continues.
+- If `bool(cond)` is `True`, it prints `no` and calls `exit(0)`.
 
-- If the debugger is **stopped**, the check is ignored.
-- If `not bool(cond)` is `True`, Debugrithm outputs the `yes` message and continues.
-- If `bool(cond)` is `True`, Debugrithm outputs the `no` message and terminates the program via `exit(0)`.
+Here, `yes` means the check passed: the forbidden condition did **not** occur. `no` reports that it did occur.
 
----
+> [!CAUTION]
+> These are invasive checks. A failed active check ends execution through `exit(0)`, and the exit status is **zero**, even on failure. Treat that as debugging behavior when interpreting a script's result in a shell or automation system.
 
-## 7. Halting Execution: `breakpoint`
+### Print and stop: `breakpoint()`
 
-The `breakpoint()` method outputs a formatted diagnostic header along with any positional or keyword arguments, then immediately halts program execution.
+An active `breakpoint()` prints a diagnostic header, positional arguments, and keyword arguments, then halts execution:
 
 ```python
 dbg = Debugger("Pipeline", used=True)
@@ -178,13 +174,11 @@ Pipeline.breakpoint@143000 'Fatal pipeline error'
 |1| retries=3
 ```
 
-Following the print output, `breakpoint()` calls `exit(0)`.
+After printing, it calls `exit(0)`. This method is Debugrithm's print-and-stop operation; it does not open an interactive debugging session.
 
----
+### Print and continue: `checkpoint()`
 
-## 8. Non-Fatal Inspection: `checkpoint`
-
-The `checkpoint()` method behaves identically to `breakpoint()` in formatting output, but does **not** terminate program execution.
+`checkpoint()` uses the same output formatting while allowing the program to continue:
 
 ```python
 dbg = Debugger("Worker", used=True)
@@ -200,28 +194,30 @@ Worker.checkpoint@143000 'Processing items'
 | ['a', 'b']
 ```
 
-Execution continues uninterrupted after a checkpoint.
+Execution continues immediately after the checkpoint. Sometimes you need a breadcrumb, not a shutdown sequence.
 
-A gentle reminder that something happened, without shooting down the entire process.
+### Substitute a value: `bypasswith()`
 
----
-
-## 9. Value Substitution: `bypasswith`
-
-The `bypasswith()` method allows replacing a default or previous value with a temporary override when debugging is active.
+Use a temporary override when debugging is running and retain the original value when it is stopped:
 
 ```python
-url = dbg.bypasswith("http://localhost:8080", "[https://api.prod.com](https://api.prod.com)", "Overriding API")
+url = dbg.bypasswith("http://localhost:8080", "https://api.prod.com", "Overriding API")
 ```
 
-- If the debugger is **stopped**, returns the previous/original value (`"https://api.prod.com"`).
-- If the debugger is **running**, logs the override and returns the new value (`"http://localhost:8080"`).
+| State | Returned value | Diagnostic output |
+| --- | --- | --- |
+| Stopped | Previous/original value: `"https://api.prod.com"`. | No override trace. |
+| Running | Current override: `"http://localhost:8080"`. | Logs `"Overriding API"`. |
 
----
+The argument order is `curr`, then `prev`, then optional text. The first value is the debugging substitute; the second is the value you use during normal execution.
 
-## 10. Function Call Tracing: `pingcalled`
+### Trace a function call: `pingcalled()`
 
-The `pingcalled()` decorator logs when a decorated function is invoked.
+The decorator logs each invocation of the decorated function. This example uses a debugger named `Service`:
+
+```python
+dbg = Debugger("Service", used=True)
+```
 
 ```python
 @dbg.pingcalled("Calculating total", dump=True)
@@ -239,13 +235,11 @@ Service.pingcalled@143000 'Calculating total'
 |1| tax=0.1
 ```
 
-Setting `dump=False` logs the function invocation header without printing the parameter values.
+With `dump=True`, the trace includes parameter values. Set `dump=False` to keep the invocation header while omitting the argument dump.
 
----
+### Gate a function: `whenproved()`
 
-## 11. Conditional Execution: `whenproved`
-
-The `whenproved()` decorator executes the target function only if a given condition evaluates to `True`.
+This decorator selects between calling the function and returning a fallback:
 
 ```python
 @dbg.whenproved(is_auth, falb="Denied", yes="Auth OK", no="Auth Failed")
@@ -253,17 +247,19 @@ def get_data():
     return "Secret payload"
 ```
 
-- If **stopped**, the original function executes normally.
-- If **running** and `True`, prints `yes` and executes the function.
-- If **running** and `False`, prints `no` and returns `falb` without executing the function.
+`is_auth` is the condition supplied by your application. The state and condition determine the result:
 
----
+| State | Condition | Result |
+| --- | --- | --- |
+| Stopped | Either value. | Execute the original function normally. |
+| Running | True. | Print `yes`, then execute the function. |
+| Running | False. | Print `no`, then return `falb` without executing the function. |
 
-## 12. Formatting Mechanics
+In this example, the active false branch returns `"Denied"`; the true branch runs `get_data()` and returns `"Secret payload"`.
 
-Debugrithm formats diagnostic output headers through the internal `_indentprint()` helper.
+### Understand the diagnostic format
 
-### 12.1 Header Assembly
+The internal `_indentprint()` helper assembles diagnostic headers. The debugger name, method, timestamp, and optional text are combined like this:
 
 | Debugger Name | Text | Generated Header Pattern |
 |---|---|---|
@@ -271,29 +267,31 @@ Debugrithm formats diagnostic output headers through the internal `_indentprint(
 | `"App"` | `""` | `App.checkpoint@143000` |
 | `""` | `"Loaded"` | `checkpoint@143000 'Loaded'` |
 
-### 12.2 Argument Formatting
+An empty message omits the quoted text. An empty debugger name omits the name and its trailing dot.
 
-Positional and simple keyword arguments are printed with zero-indexed indicators:
+Positional arguments and simple keyword arguments use zero-based indices:
 
 ```text
 |0| 'first_arg'
 |1| status=True
 ```
 
-When keyword arguments contain dictionaries or lists, Debugrithm formats them across multiple lines using Python's `pprint.pformat()` with `width=60`.
+Dictionary and list values passed as keyword arguments use multiple lines, formatted with Python's `pprint.pformat()` using `width=60`:
 
 ```text
 |0| data=
 | {'items': ['a', 'b', 'c'], 'status': 200}
 ```
 
----
+That gives larger values some breathing room without making you format each collection by hand.
 
-## 13. API Summary
+### API at a glance
 
-### Instantiation & State
+The signatures below collect the constructor, state methods, inspection methods, and decorators in one place. Return annotations describe the interface.
 
-```python
+#### Instantiation & State
+
+```text
 Debugger(name="", used=False)
 dbg.stopped() -> bool
 dbg.running() -> bool
@@ -301,9 +299,9 @@ dbg.pauseit() -> None
 dbg.startit() -> None
 ```
 
-### Assertions & Inspection
+#### Assertions & Inspection
 
-```python
+```text
 dbg.expectthat(cond, yes="", no="")
 dbg.forbidthat(cond, yes="", no="")
 dbg.breakpoint(text="", *args, **kwargs)
@@ -311,47 +309,18 @@ dbg.checkpoint(text="", *args, **kwargs)
 dbg.bypasswith(curr, prev, text="")
 ```
 
-### Decorators
+#### Decorators
 
-```python
+```text
 @dbg.pingcalled(text="", dump=True)
 @dbg.whenproved(cond, falb, yes="", no="")
 ```
 
----
+## Examples
 
-## 14. Design Philosophy
+### Trace a request from entry to result
 
-Debugrithm is designed as an explicit, low-overhead debugging layer built around simple standard-library utilities.
-
-Rather than running as an interactive debugger attached to a subshell or socket, Debugrithm embeds lightweight assertion and inspection primitives directly into code paths. The library separates operational mechanics cleanly into state control, assertions, fatal/non-fatal inspection, and decorators.
-
-Debugrithm is intentionally compact and relies entirely on Python standard library modules.
-
-The goal is not to replace full-featured interactive debugging suites.
-
-The goal is to make print-debugging structured enough that you aren't embarrassed when someone looks over your shoulder.
-
----
-
-## 15. Limitations
-
-Debugrithm is intentionally lightweight. The current implementation does not provide:
-
-- Interactive REPL or step-by-step code execution.
-- Variable inspection outside of passed arguments.
-- Stack trace capture or frame inspection.
-- File logging or log level filtering.
-- Thread-safe state synchronization.
-- Asynchronous (`asyncio`) decorator support.
-
-Program termination via `exit(0)` calls standard system exit routines, which may terminate the entire Python process without throwing catchable standard exceptions.
-
----
-
-## 16. Final Example
-
-A compact Debugrithm program demonstrating core formatting and tracing capabilities:
+This combines invocation tracing, a structured checkpoint, an assertion, and a debugging override:
 
 ```python
 from debugrithm import Debugger
@@ -369,7 +338,7 @@ result = handle_request({"user_id": 42, "roles": ["admin", "editor"]})
 print(f"Final Result: {result}")
 ```
 
-### Expected Output
+Expected output, using the illustrative timestamp:
 
 ```text
 App.pingcalled@143000 'Processing incoming request'
@@ -382,4 +351,26 @@ App.bypasswith@143000 'Bypassing DB'
 Final Result: mock_response_200
 ```
 
-A small interface for making print-debugging feel like a deliberate software design decision.
+The call is traced first, the payload is inspected next, and the nonempty-payload check passes. Because the debugger is active, `bypasswith()` returns `"mock_response_200"` instead of `"real_db_response"`.
+
+## Good to know
+
+Debugrithm stays focused on explicit inspection inside your own code. The current implementation does not provide:
+
+- An interactive REPL or step-by-step execution.
+- Variable inspection beyond the arguments you pass in.
+- Stack-trace capture or frame inspection.
+- File logging or log-level filtering.
+- Thread-safe state synchronization.
+- Asynchronous (`asyncio`) decorator support.
+
+> [!IMPORTANT]
+> In ordinary Python execution, `exit(0)` raises `SystemExit`. It can terminate the process if it propagates, and it is not caught by `except Exception` because `SystemExit` derives from `BaseException`. Catching `SystemExit` explicitly is possible. The stop operations are still intended to end execution.
+
+Use the running/stopped state deliberately: a paused debugger skips its assertions, returns original values from `bypasswith()`, and lets decorated functions execute normally. Those choices are part of the interface, not a replacement for your application's own validation or control flow.
+
+## Design notes
+
+Debugrithm embeds small assertion and inspection primitives directly into code paths. State control, assertions, fatal and non-fatal inspection, value substitution, and decorators each have a clear role, built with standard-library utilities and little overhead.
+
+It stays compact instead of attaching an interactive debugger through a subshell or socket. The aim is to make print-debugging deliberate, readable, and easy to turn off. Your future self deserves better than twelve identical lines saying `HERE`.
